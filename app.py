@@ -176,7 +176,7 @@ def handle_modal_submit(ack, body, client, view):
         # A. Håndter kanal
         if new_channel:
             clean_name = new_channel.strip().lstrip("#")
-            clean_name = clean_name.lower().replace("æ", "ae").replace("ø", "o").replace("å", "a")
+            clean_name = clean_name.lower().replace("æ", "a").replace("ø", "o").replace("å", "a")
             clean_name = re.sub(r'[^a-z0-9-_]', '-', clean_name)
             clean_name = re.sub(r'-+', '-', clean_name).strip('-')
 
@@ -189,20 +189,12 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # B. Opprett standard Channel Canvas
+        # B1. Opprett standard Channel Canvas Uten Tabell
         try:
             canvas_markdown = textwrap.dedent(f"""\
                 ### 👥 Roller
                 * **Reportasjeleder:** ![](@{leader})
                 * **Reporter:** _Skriv navn_
-
-                ### 📞 Kildeoversikt
-                | Kilde | Telefon | Hvem ringer? |
-                | --- | --- | --- |
-                | | | |
-                | | | |
-                | | | |
-                | | | |
 
                 ### 🔗 Lenker og dokumenter
                 * (Lim inn lenker her)""").strip()
@@ -217,6 +209,38 @@ def handle_modal_submit(ack, body, client, view):
             )
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
+
+        # B2. Opprett Slack List (Kildeoversikt)
+        try:
+            list_res = client.api_call(
+                api_method="lists.create",
+                json={
+                    "title": "Kildeoversikt",
+                    "channel_id": channel_id,
+                    "schema": [
+                        {"name": "Kilde", "type": "text"},
+                        {"name": "Siste kontakt", "type": "date"},
+                        {"name": "Ansvarlig", "type": "user"},
+                        {"name": "Kontaktinfo", "type": "text"},
+                        {"name": "Kommentar", "type": "text"}
+                    ]
+                }
+            )
+            
+            list_id = list_res.get("list", {}).get("id")
+
+            # Generer 5 tomme rader i listen
+            if list_id:
+                for _ in range(5):
+                    client.api_call(
+                        api_method="lists.items.create",
+                        json={
+                            "list_id": list_id,
+                            "fields": {}
+                        }
+                    )
+        except Exception as e:
+            print(f"Advarsel: Kunne ikke opprette liste: {e}")
 
         # C. Inviter brukere
         all_to_invite = set(invited_users + [leader, user_id])
@@ -250,10 +274,10 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # D. Melding i den nye/eksisterende kanalen
+        # D. Melding i den nye/eksisterende kanalen (Oppdatert tekst)
         client.chat_postMessage(
             channel=channel_id,
-            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp en Arbeidsliste i kanalens Canvas (dokument-ikonet øverst til høyre).* \n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
+            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp et Canvas (Arbeidsliste) og en egen Slack-liste (Kildeoversikt) for å lette arbeidet. Du finner begge to i fanene øverst i kanalen!*\n\n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
         )
 
         # E. Varsling i kanalen der kommandoen ble startet fra
@@ -261,7 +285,7 @@ def handle_modal_submit(ack, body, client, view):
             try:
                 client.chat_postMessage(
                     channel=origin_channel_id,
-                    text=f"🚨 *Ny breaking-kanal opprettet!*\n<@{user_id}> har opprettet <#{channel_id}>. Ansvarlig reportasjeleder: <@{leader}>.\n\n👉 Trykk på <#{channel_id}> for å gå til kanalen og bli med."
+                    text=f"🚨 *Ny breaking-kanal opprettet!*\n<@{user_id}> har opprettet/koblet opp <#{channel_id}>. Ansvarlig reportasjeleder: <@{leader}>.\n\n👉 Trykk på <#{channel_id}> for å gå til kanalen og bli med."
                 )
             except Exception as e:
                 print(f"Kunne ikke sende melding til starter-kanal: {e}")
