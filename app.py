@@ -141,7 +141,7 @@ def handle_modal_submit(ack, body, client, view):
         )
 
         # E. Start bakgrunnstimer på 15 minutter (900 sekunder)
-        convert_to_private_later(client, channel_id, delay_seconds=900)
+        convert_to_private_later(client, channel_id, delay_seconds=10)
 
     except Exception as e:
         print(f"Feil i prosesseringen: {e}")
