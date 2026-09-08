@@ -260,7 +260,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"FEIL VED OPPRETTELSE AV LISTE: {e}")
             
-        # C. Inviter brukere
+   # C. Inviter brukere
         all_to_invite = set(invited_users + [leader, user_id])
 
         # Hent faste enkeltbrukere fra .env
@@ -285,12 +285,13 @@ def handle_modal_submit(ack, body, client, view):
                 except Exception as e:
                     print(f"Advarsel: Kunne ikke hente gruppe {g_id}. Feil: {e}")
 
-        # Utfør selve invitasjonen for alle på listen i én operasjon
-        for u in all_to_invite:
+        # Utfør selve invitasjonen av alle på listen i ÉN samlet operasjon (Batch)
+        if all_to_invite:
             try:
-                client.conversations_invite(channel=channel_id, users=u)
-            except Exception:
-                pass
+                users_string = ",".join(all_to_invite)
+                client.conversations_invite(channel=channel_id, users=users_string)
+            except Exception as e:
+                print(f"Advarsel: Kunne ikke invitere alle brukere: {e}")
 
         # D. Melding i den nye/eksisterende kanalen
         velkomst_tekst = f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp et Canvas (Arbeidsliste) øverst i fane-menyen.*"
