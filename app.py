@@ -185,8 +185,8 @@ def handle_modal_submit(ack, body, client, view):
                 pass
 
         # B. Opprett standard Channel Canvas
-        try:
-            canvas_markdown = f"""# Arbeidsliste
+       try:
+            canvas_markdown = textwrap.dedent(f"""\
 
 ### 👥 Roller
 * **Reportasjeleder:** ![](@{leader})
@@ -205,6 +205,7 @@ def handle_modal_submit(ack, body, client, view):
             
             client.conversations_canvases_create(
                 channel_id=channel_id,
+                title="Arbeidsliste",
                 document_content={
                     "type": "markdown",
                     "markdown": canvas_markdown
