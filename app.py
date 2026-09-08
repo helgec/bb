@@ -22,7 +22,22 @@ def open_breaking_modal(ack, body, client):
             "title": {"type": "plain_text", "text": "Ny Breaking-kanal"},
             "submit": {"type": "plain_text", "text": "Start prosess"},
             "close": {"type": "plain_text", "text": "Avbryt"},
-            "blocks": [
+"blocks": [
+                # --- INTROTEKST ---
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "Fyll ut skjemaet under for å raskt sette opp en strukturert breaking-kanal. _Automatiske invitasjoner sendes i bakgrunnen._"
+                    }
+                },
+                {"type": "divider"},
+
+                # --- DEL 1: KANAL ---
+                {
+                    "type": "header",
+                    "text": {"type": "plain_text", "text": "📺 1. Velg eller lag kanal", "emoji": True}
+                },
                 {
                     "type": "input",
                     "block_id": "new_channel_block",
@@ -45,6 +60,13 @@ def open_breaking_modal(ack, body, client):
                     },
                     "label": {"type": "plain_text", "text": "ELLER velg en eksisterende kanal"}
                 },
+                {"type": "divider"},
+
+                # --- DEL 2: PERSONER ---
+                {
+                    "type": "header",
+                    "text": {"type": "plain_text", "text": "👥 2. Rollesetting", "emoji": True}
+                },
                 {
                     "type": "input",
                     "block_id": "leader_block",
@@ -64,11 +86,20 @@ def open_breaking_modal(ack, body, client):
                         "action_id": "users_input",
                         "placeholder": {"type": "plain_text", "text": "Velg kolleger..."}
                     },
-                    "label": {"type": "plain_text", "text": "Inviter kolleger"}
+                    "label": {"type": "plain_text", "text": "Inviter kolleger (valgfritt)"}
+                },
+                
+                # --- BITTELITEN GRÅ HJELPETEKST ---
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "ℹ️ *Tips:* Faste grupper og ledere blir automatisk invitert, så du trenger bare legge til de som trengs spesifikt for denne saken."
+                        }
+                    ]
                 }
             ]
-        }
-    )
 
 # 2. Funksjon for bakgrunnstimer og DM-påminnelse med knapp
 def remind_to_make_private(client, channel_id, user_id, delay_seconds=900):
