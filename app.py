@@ -210,7 +210,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
-       # B2. Opprett Slack List (Kildeoversikt) og fest som fane
+# B2. Opprett Slack List (Kildeoversikt) og fest som fane
         list_url = ""
         try:
             list_res = client.api_call(
@@ -227,10 +227,8 @@ def handle_modal_submit(ack, body, client, view):
                 }
             )
             
-            # Print hele svaret i terminalen for debugging
-            print(f"SVAR FRA SLACK LIST API: {list_res}")
-            
-            list_id = list_res.get("list", {}).get("id")
+            # Hent ID-en direkte fra svaret
+            list_id = list_res.get("list_id")
             
             if list_id:
                 team_id = body["team"]["id"]
@@ -248,6 +246,7 @@ def handle_modal_submit(ack, body, client, view):
 
         except Exception as e:
             print(f"FEIL VED OPPRETTELSE AV LISTE: {e}")
+            
         # C. Inviter brukere
         all_to_invite = set(invited_users + [leader, user_id])
 
