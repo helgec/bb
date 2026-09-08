@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 import time
 from dotenv import load_dotenv
@@ -99,20 +100,17 @@ def handle_modal_submit(ack, body, client, view):
 
     ack()
 
-try:
+    try:
         # A. Håndter kanal
         if new_channel:
             # 1. Fjern eventuell '#' i starten og tomrom rundt
             clean_name = new_channel.strip().lstrip("#")
-            
             # 2. Gjør om til små bokstaver og erstatt norske tegn
             clean_name = clean_name.lower().replace("æ", "ae").replace("ø", "o").replace("å", "a")
-            
             # 3. Erstatt ulovlige tegn/mellomrom med bindestrek
             clean_name = re.sub(r'[^a-z0-9-_]', '-', clean_name)
             clean_name = re.sub(r'-+', '-', clean_name).strip('-')
-            
-            # 4. Opprett kanalen med det vaskede navnet
+
             res = client.conversations_create(name=clean_name)
             channel_id = res["channel"]["id"]
         else:
@@ -136,7 +134,7 @@ try:
             text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n*Denne kanalen settes automatisk til privat om 15 minutter.*"
         )
 
-        # D. Send varsling i felleskanal (bytt ut 'akt-ny-sakskanal' med kanal-ID eller navn hos dere)
+        # D. Send varsling i felleskanal (bytt eventuelt ut kanalnavnet hvis det heter noe annet hos dere)
         client.chat_postMessage(
             channel="akt-ny-sakskanal",
             text=f"<@{user_id}> har opprettet/koblet opp <#{channel_id}>. Ansvarlig reportasjeleder: <@{leader}>."
