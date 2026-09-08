@@ -27,7 +27,7 @@ def open_breaking_modal(ack, body, client):
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "Fyll ut skjemaet under for å raskt sette opp en strukturert breaking-kanal. _Automatiske invitasjoner sendes i bakgrunnen._"
+                        "text": "Fyll ut skjemaet under sette opp en breaking-kanal. _Automatiske invitasjoner sendes i bakgrunnen._"
                     }
                 },
                 {"type": "divider"},
@@ -42,7 +42,7 @@ def open_breaking_modal(ack, body, client):
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "new_channel_input",
-                        "placeholder": {"type": "plain_text", "text": "f.eks. breaking-togavsporing"}
+                        "placeholder": {"type": "plain_text", "text": "f.eks. sak-togavsporing"}
                     },
                     "label": {"type": "plain_text", "text": "Skriv nytt kanalnavn"}
                 },
@@ -60,7 +60,7 @@ def open_breaking_modal(ack, body, client):
                 {"type": "divider"},
                 {
                     "type": "header",
-                    "text": {"type": "plain_text", "text": "👥 2. Rollesetting", "emoji": True}
+                    "text": {"type": "plain_text", "text": "👥 2. Bemanning", "emoji": True}
                 },
                 {
                     "type": "input",
