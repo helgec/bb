@@ -186,20 +186,19 @@ def handle_modal_submit(ack, body, client, view):
 
         # B. Opprett standard Channel Canvas
         try:
-            # I Canvas brukes formatet ![](@ID) for å tagge folk
-            canvas_markdown = f"""# 🚨 Breaking-notater
-Her samler vi oversikten over saken.
+            canvas_markdown = f"""# Arbeidsliste
 
 ### 👥 Roller
 * **Reportasjeleder:** ![](@{leader})
 * **Reporter:** _Skriv navn_
-* **Frontredigerer:** _Skriv navn_
 
-### ✅ Sjekkliste
-- [ ] Publiser første kortversjon/NTB på front
-- [ ] Sjekk med nødetater / kilder
-- [ ] Hent inn bilder/video
-- [ ] Vurder pushvarsel
+### 📞 Kildeoversikt
+| Kilde | Telefon | Hvem ringer? |
+| --- | --- | --- |
+| | | |
+| | | |
+| | | |
+| | | |
 
 ### 🔗 Lenker og dokumenter
 * (Lim inn lenker her)"""
@@ -212,7 +211,7 @@ Her samler vi oversikten over saken.
                 }
             )
         except Exception as e:
-            print(f"Advarsel: Kunne ikke opprette canvas (kanskje den allerede finnes?): {e}")
+            print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
         # C. Inviter brukere
         all_to_invite = set(invited_users + [leader, user_id])
@@ -249,7 +248,7 @@ Her samler vi oversikten over saken.
         # D. Melding i ny/eksisterende kanal
         client.chat_postMessage(
             channel=channel_id,
-            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt et ferdig oppsett i kanalens Canvas (dokument-ikonet øverst til høyre).* \n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
+            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp en Arbeidsliste i kanalens Canvas (dokument-ikonet øverst til høyre).* \n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
         )
 
         # E. Varsling i felleskanal via .env
