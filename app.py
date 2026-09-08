@@ -1,5 +1,6 @@
 import os
 import re
+import textwrap
 import threading
 import time
 from dotenv import load_dotenv
@@ -185,24 +186,23 @@ def handle_modal_submit(ack, body, client, view):
                 pass
 
         # B. Opprett standard Channel Canvas
-       try:
+        try:
             canvas_markdown = textwrap.dedent(f"""\
+                ### 👥 Roller
+                * **Reportasjeleder:** ![](@{leader})
+                * **Reporter:** _Skriv navn_
 
-### 👥 Roller
-* **Reportasjeleder:** ![](@{leader})
-* **Reporter:** _Skriv navn_
+                ### 📞 Kildeoversikt
+                | Kilde | Telefon | Hvem ringer? |
+                | --- | --- | --- |
+                | | | |
+                | | | |
+                | | | |
+                | | | |
 
-### 📞 Kildeoversikt
-| Kilde | Telefon | Hvem ringer? |
-| --- | --- | --- |
-| | | |
-| | | |
-| | | |
-| | | |
+                ### 🔗 Lenker og dokumenter
+                * (Lim inn lenker her)""").strip()
 
-### 🔗 Lenker og dokumenter
-* (Lim inn lenker her)"""
-            
             client.conversations_canvases_create(
                 channel_id=channel_id,
                 title="Arbeidsliste",
