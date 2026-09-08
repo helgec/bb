@@ -296,7 +296,7 @@ def handle_modal_submit(ack, body, client, view):
         velkomst_tekst = f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp et Canvas (Arbeidsliste) øverst i fane-menyen.*"
         
         if list_url:
-            velkomst_tekst += f"\n📊 *Jeg har også opprettet en Kildeoversikt som ligger som fane øverst i kanalen:* <{list_url}|Trykk her for å åpne Listen>"
+            velkomst_tekst += f"\n📊 *Jeg har også opprettet en Kildeoversikt som ligger som fane øverst i kanalen:* <{list_url}|Trykk her for å åpne Listen> (Pinnes ved å trykke + List og deretter velge den nyeste kildelista.)"
 
         velkomst_tekst += "\n\n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
 
