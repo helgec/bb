@@ -58,6 +58,7 @@ def open_breaking_modal(ack, body, client):
                 {
                     "type": "input",
                     "block_id": "users_block",
+                    "optional": True,
                     "element": {
                         "type": "multi_users_select",
                         "action_id": "users_input",
@@ -129,7 +130,7 @@ def handle_modal_submit(ack, body, client, view):
     new_channel = values["new_channel_block"]["new_channel_input"].get("value")
     existing_channel = values["existing_channel_block"]["existing_channel_input"].get("selected_channel")
     leader = values["leader_block"]["leader_input"]["selected_user"]
-    invited_users = values["users_block"]["users_input"]["selected_users"]
+    invited_users = values["users_block"]["users_input"].get("selected_users", [])
     user_id = body["user"]["id"]
 
     if (new_channel and existing_channel) or (not new_channel and not existing_channel):
@@ -189,10 +190,10 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # C. Melding i ny kanal
+        # C. Melding i ny/eksisterende kanal
         client.chat_postMessage(
             channel=channel_id,
-            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n*Kanalen skal settes til privat om 15 minutter.*"
+            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
         )
 
         # D. Varsling i felleskanal via .env
