@@ -189,7 +189,7 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # B1. Opprett standard Channel Canvas Uten Tabell
+        # B1. Opprett standard Channel Canvas (Uten tabell)
         try:
             canvas_markdown = textwrap.dedent(f"""\
                 ### 👥 Roller
@@ -210,7 +210,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
-        # B2. Opprett Slack List (Kildeoversikt)
+        # B2. Opprett Slack List (Kildeoversikt) og fest som fane
         list_url = ""
         try:
             list_res = client.api_call(
@@ -229,13 +229,23 @@ def handle_modal_submit(ack, body, client, view):
             
             list_id = list_res.get("list", {}).get("id")
             
-            # Lag en lenke til listen som vi kan dele i kanalen
             if list_id:
                 team_id = body["team"]["id"]
                 list_url = f"https://app.slack.com/lists/{team_id}/{list_id}"
+                
+                # Fest listen som en fane (bokmerke) øverst i kanalen
+                try:
+                    client.bookmarks_add(
+                        channel_id=channel_id,
+                        title="Kildeoversikt",
+                        type="link",
+                        link=list_url
+                    )
+                except Exception as e:
+                    print(f"Advarsel: Kunne ikke feste listen som fane: {e}")
 
         except Exception as e:
-            print(f"Advarsel: Kunne ikke opprette liste: {e}")
+            print(f"FEIL VED OPPRETTELSE AV LISTE: {e}")
 
         # C. Inviter brukere
         all_to_invite = set(invited_users + [leader, user_id])
@@ -272,9 +282,8 @@ def handle_modal_submit(ack, body, client, view):
         # D. Melding i den nye/eksisterende kanalen
         velkomst_tekst = f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp et Canvas (Arbeidsliste) øverst i fane-menyen.*"
         
-        # Sjekk om listen ble opprettet, og legg til lenken
         if list_url:
-            velkomst_tekst += f"\n📊 *Jeg har også opprettet en strukturert Kildeoversikt:* <{list_url}|Trykk her for å åpne Listen>"
+            velkomst_tekst += f"\n📊 *Jeg har også opprettet en Kildeoversikt som ligger som fane øverst i kanalen:* <{list_url}|Trykk her for å åpne Listen>"
 
         velkomst_tekst += "\n\n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
 
