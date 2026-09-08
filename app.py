@@ -15,11 +15,14 @@ app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 @app.command("/breaking")
 def open_breaking_modal(ack, body, client):
     ack()
+    origin_channel_id = body["channel_id"]  # Henter ID til kanalen kommandoen ble startet i
+
     client.views_open(
         trigger_id=body["trigger_id"],
         view={
             "type": "modal",
             "callback_id": "breaking_modal",
+            "private_metadata": origin_channel_id,  # Lagrer kanal-ID-en i skjemaet
             "title": {"type": "plain_text", "text": "Ny Breaking-kanal"},
             "submit": {"type": "plain_text", "text": "Start prosess"},
             "close": {"type": "plain_text", "text": "Avbryt"},
@@ -159,6 +162,7 @@ def handle_modal_submit(ack, body, client, view):
     leader = values["leader_block"]["leader_input"]["selected_user"]
     invited_users = values["users_block"]["users_input"].get("selected_users", [])
     user_id = body["user"]["id"]
+    origin_channel_id = view.get("private_metadata")  # Henter ut opprinnelig kanal-ID
 
     if (new_channel and existing_channel) or (not new_channel and not existing_channel):
         ack(response_action="errors", errors={
@@ -246,15 +250,25 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # D. Melding i ny/eksisterende kanal
+        # D. Melding i den nye/eksisterende kanalen
         client.chat_postMessage(
             channel=channel_id,
             text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp en Arbeidsliste i kanalens Canvas (dokument-ikonet øverst til høyre).* \n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
         )
 
-        # E. Varsling i felleskanal via .env
+        # E. Varsling i kanalen der kommandoen ble startet fra
+        if origin_channel_id:
+            try:
+                client.chat_postMessage(
+                    channel=origin_channel_id,
+                    text=f"🚨 *Ny breaking-kanal opprettet!*\n<@{user_id}> har opprettet <#{channel_id}>. Ansvarlig reportasjeleder: <@{leader}>.\n\n👉 Trykk på <#{channel_id}> for å gå til kanalen og bli med."
+                )
+            except Exception as e:
+                print(f"Kunne ikke sende melding til starter-kanal: {e}")
+
+        # F. Varsling i felleskanal via .env (hvis definert og ulik starter-kanalen)
         varsling_kanal = os.environ.get("VARSLING_CHANNEL_ID")
-        if varsling_kanal:
+        if varsling_kanal and varsling_kanal != origin_channel_id:
             try:
                 client.chat_postMessage(
                     channel=varsling_kanal,
@@ -263,7 +277,7 @@ def handle_modal_submit(ack, body, client, view):
             except Exception as e:
                 print(f"Kunne ikke sende varsel til felleskanal: {e}")
 
-        # F. Start 15-minutters timer (900 sekunder)
+        # G. Start 15-minutters timer (900 sekunder)
         remind_to_make_private(client, channel_id, user_id, delay_seconds=900)
 
     except Exception as e:
