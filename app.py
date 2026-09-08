@@ -157,13 +157,38 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # B. Inviter brukere
+   # B. Inviter brukere
+        # Starter med de som ble valgt i skjemaet + reportasjeleder + den som trykket på knappen
         all_to_invite = set(invited_users + [leader, user_id])
+
+        # --- NY: Hent faste enkeltbrukere fra .env ---
+        auto_users_string = os.environ.get("AUTO_INVITE_USER_ID")
+        if auto_users_string:
+            auto_users = [u.strip() for u in auto_users_string.split(",")]
+            for u_id in auto_users:
+                if u_id:  # Sjekker at det ikke er tomt
+                    all_to_invite.add(u_id)
+
+        # --- EKSISTERENDE: Hent grupper fra .env ---
+        group_ids_string = os.environ.get("AUTO_INVITE_GROUP_ID")
+        if group_ids_string:
+            group_ids = [g.strip() for g in group_ids_string.split(",")]
+            for g_id in group_ids:
+                if not g_id: 
+                    continue
+                try:
+                    group_response = client.usergroups_users_list(usergroup=g_id)
+                    group_members = group_response.get("users", [])
+                    all_to_invite.update(group_members)
+                except Exception as e:
+                    print(f"Advarsel: Kunne ikke hente gruppe {g_id}. Feil: {e}")
+
+        # --- Utfør selve invitasjonen for alle på listen i én operasjon ---
         for u in all_to_invite:
             try:
                 client.conversations_invite(channel=channel_id, users=u)
             except Exception:
-                pass
+                pass  # Ignorer om brukeren allerede er i kanalen
 
         # C. Melding i ny kanal
         client.chat_postMessage(
