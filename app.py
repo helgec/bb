@@ -211,34 +211,29 @@ def handle_modal_submit(ack, body, client, view):
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
         # B2. Opprett Slack List (Kildeoversikt)
+        list_url = ""
         try:
             list_res = client.api_call(
-                api_method="lists.create",
+                api_method="slackLists.create",
                 json={
-                    "title": "Kildeoversikt",
-                    "channel_id": channel_id,
+                    "name": "Kildeoversikt",
                     "schema": [
-                        {"name": "Kilde", "type": "text"},
-                        {"name": "Siste kontakt", "type": "date"},
-                        {"name": "Ansvarlig", "type": "user"},
-                        {"name": "Kontaktinfo", "type": "text"},
-                        {"name": "Kommentar", "type": "text"}
+                        {"key": "kilde", "name": "Kilde", "type": "text", "is_primary_column": True},
+                        {"key": "siste_kontakt", "name": "Siste kontakt", "type": "date"},
+                        {"key": "ansvarlig", "name": "Ansvarlig", "type": "user"},
+                        {"key": "kontaktinfo", "name": "Kontaktinfo", "type": "text"},
+                        {"key": "kommentar", "name": "Kommentar", "type": "text"}
                     ]
                 }
             )
             
             list_id = list_res.get("list", {}).get("id")
-
-            # Generer 5 tomme rader i listen
+            
+            # Lag en lenke til listen som vi kan dele i kanalen
             if list_id:
-                for _ in range(5):
-                    client.api_call(
-                        api_method="lists.items.create",
-                        json={
-                            "list_id": list_id,
-                            "fields": {}
-                        }
-                    )
+                team_id = body["team"]["id"]
+                list_url = f"https://app.slack.com/lists/{team_id}/{list_id}"
+
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette liste: {e}")
 
@@ -274,10 +269,18 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # D. Melding i den nye/eksisterende kanalen (Oppdatert tekst)
+        # D. Melding i den nye/eksisterende kanalen
+        velkomst_tekst = f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp et Canvas (Arbeidsliste) øverst i fane-menyen.*"
+        
+        # Sjekk om listen ble opprettet, og legg til lenken
+        if list_url:
+            velkomst_tekst += f"\n📊 *Jeg har også opprettet en strukturert Kildeoversikt:* <{list_url}|Trykk her for å åpne Listen>"
+
+        velkomst_tekst += "\n\n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
+
         client.chat_postMessage(
             channel=channel_id,
-            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp et Canvas (Arbeidsliste) og en egen Slack-liste (Kildeoversikt) for å lette arbeidet. Du finner begge to i fanene øverst i kanalen!*\n\n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
+            text=velkomst_tekst
         )
 
         # E. Varsling i kanalen der kommandoen ble startet fra
