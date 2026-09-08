@@ -27,7 +27,7 @@ def open_breaking_modal(ack, body, client):
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "Fyll ut skjemaet under sette opp en breaking-kanal. _Automatiske invitasjoner sendes i bakgrunnen._"
+                        "text": "Fyll ut skjemaet under for å sette opp en breaking-kanal. _Automatiske invitasjoner sendes i bakgrunnen._"
                     }
                 },
                 {"type": "divider"},
@@ -184,7 +184,37 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # B. Inviter brukere
+        # B. Opprett standard Channel Canvas
+        try:
+            # I Canvas brukes formatet ![](@ID) for å tagge folk
+            canvas_markdown = f"""# 🚨 Breaking-notater
+Her samler vi oversikten over saken.
+
+### 👥 Roller
+* **Reportasjeleder:** ![](@{leader})
+* **Reporter:** _Skriv navn_
+* **Frontredigerer:** _Skriv navn_
+
+### ✅ Sjekkliste
+- [ ] Publiser første kortversjon/NTB på front
+- [ ] Sjekk med nødetater / kilder
+- [ ] Hent inn bilder/video
+- [ ] Vurder pushvarsel
+
+### 🔗 Lenker og dokumenter
+* (Lim inn lenker her)"""
+            
+            client.conversations_canvases_create(
+                channel_id=channel_id,
+                document_content={
+                    "type": "markdown",
+                    "markdown": canvas_markdown
+                }
+            )
+        except Exception as e:
+            print(f"Advarsel: Kunne ikke opprette canvas (kanskje den allerede finnes?): {e}")
+
+        # C. Inviter brukere
         all_to_invite = set(invited_users + [leader, user_id])
 
         # Hent faste enkeltbrukere fra .env
@@ -216,13 +246,13 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # C. Melding i ny/eksisterende kanal
+        # D. Melding i ny/eksisterende kanal
         client.chat_postMessage(
             channel=channel_id,
-            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
+            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt et ferdig oppsett i kanalens Canvas (dokument-ikonet øverst til høyre).* \n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
         )
 
-        # D. Varsling i felleskanal via .env
+        # E. Varsling i felleskanal via .env
         varsling_kanal = os.environ.get("VARSLING_CHANNEL_ID")
         if varsling_kanal:
             try:
@@ -233,7 +263,7 @@ def handle_modal_submit(ack, body, client, view):
             except Exception as e:
                 print(f"Kunne ikke sende varsel til felleskanal: {e}")
 
-        # E. Start 15-minutters timer (900 sekunder)
+        # F. Start 15-minutters timer (900 sekunder)
         remind_to_make_private(client, channel_id, user_id, delay_seconds=900)
 
     except Exception as e:
