@@ -22,8 +22,7 @@ def open_breaking_modal(ack, body, client):
             "title": {"type": "plain_text", "text": "Ny Breaking-kanal"},
             "submit": {"type": "plain_text", "text": "Start prosess"},
             "close": {"type": "plain_text", "text": "Avbryt"},
-"blocks": [
-                # --- INTROTEKST ---
+            "blocks": [
                 {
                     "type": "section",
                     "text": {
@@ -32,8 +31,6 @@ def open_breaking_modal(ack, body, client):
                     }
                 },
                 {"type": "divider"},
-
-                # --- DEL 1: KANAL ---
                 {
                     "type": "header",
                     "text": {"type": "plain_text", "text": "📺 1. Velg eller lag kanal", "emoji": True}
@@ -61,8 +58,6 @@ def open_breaking_modal(ack, body, client):
                     "label": {"type": "plain_text", "text": "ELLER velg en eksisterende kanal"}
                 },
                 {"type": "divider"},
-
-                # --- DEL 2: PERSONER ---
                 {
                     "type": "header",
                     "text": {"type": "plain_text", "text": "👥 2. Rollesetting", "emoji": True}
@@ -88,8 +83,6 @@ def open_breaking_modal(ack, body, client):
                     },
                     "label": {"type": "plain_text", "text": "Inviter kolleger (valgfritt)"}
                 },
-                
-                # --- BITTELITEN GRÅ HJELPETEKST ---
                 {
                     "type": "context",
                     "elements": [
@@ -100,6 +93,8 @@ def open_breaking_modal(ack, body, client):
                     ]
                 }
             ]
+        }
+    )
 
 # 2. Funksjon for bakgrunnstimer og DM-påminnelse med knapp
 def remind_to_make_private(client, channel_id, user_id, delay_seconds=900):
