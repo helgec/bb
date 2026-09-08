@@ -227,13 +227,26 @@ def handle_modal_submit(ack, body, client, view):
                 }
             )
             
-            # Hent ID-en direkte fra svaret
             list_id = list_res.get("list_id")
             
             if list_id:
                 team_id = body["team"]["id"]
                 list_url = f"https://app.slack.com/lists/{team_id}/{list_id}"
+
+                # 1. Del listen med kanalen (gir alle medlemmene skrivetilgang)
+                try:
+                    client.api_call(
+                        api_method="slackLists.access.set",
+                        json={
+                            "list_id": list_id,
+                            "access_level": "write",
+                            "channel_ids": [channel_id]
+                        }
+                    )
+                except Exception as e:
+                    print(f"Advarsel: Kunne ikke dele listen med kanalen: {e}")
                 
+                # 2. Fest listen som en fane (bokmerke)
                 try:
                     client.bookmarks_add(
                         channel_id=channel_id,
