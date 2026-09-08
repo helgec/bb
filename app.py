@@ -69,19 +69,60 @@ def open_breaking_modal(ack, body, client):
         }
     )
 
-# Funksjon for å gjøre kanalen privat etter 15 minutter (kjører i bakgrunnen)
-def convert_to_private_later(client, channel_id, delay_seconds=900):
+# 2. Funksjon for bakgrunnstimer og DM-påminnelse med knapp
+def remind_to_make_private(client, channel_id, user_id, delay_seconds=900):
     def task():
         time.sleep(delay_seconds)
         try:
-            client.conversations_convertToPrivate(channel=channel_id)
-            print(f"Kanal {channel_id} ble automatisk satt til privat.")
+            client.chat_postMessage(
+                channel=user_id,
+                text=f"Påminnelse: Husk å gjøre <#{channel_id}> privat!",
+                blocks=[
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"⏱️ *Nå har det gått 15 minutter!*\nHusk å sette <#{channel_id}> til privat.\n\n1. Trykk på kanalnavnet øverst\n2. Velg *Settings*\n3. Trykk på *Change to a private channel*"
+                        }
+                    },
+                    {
+                        "type": "actions",
+                        "elements": [
+                            {
+                                "type": "button",
+                                "text": {"type": "plain_text", "text": "✅ Jeg har gjort den privat"},
+                                "style": "primary",
+                                "action_id": "mark_private_done"
+                            }
+                        ]
+                    }
+                ]
+            )
         except Exception as e:
-            print(f"Feilet under konvertering til privat: {e}")
+            print(f"Feilet under sending av påminnelse: {e}")
 
     threading.Thread(target=task, daemon=True).start()
 
-# 2. Håndter at skjemaet sendes inn
+# 3. Håndter trykk på "Jeg har gjort den privat"-knappen
+@app.action("mark_private_done")
+def handle_mark_private_done(ack, body, client):
+    ack()
+    client.chat_update(
+        channel=body["channel"]["id"],
+        ts=body["message"]["ts"],
+        text="Takk! Registrert at kanalen er satt til privat.",
+        blocks=[
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "✅ *Takk!* Du har bekreftet at kanalen er satt til privat."
+                }
+            }
+        ]
+    )
+
+# 4. Håndter at skjemaet sendes inn
 @app.view("breaking_modal")
 def handle_modal_submit(ack, body, client, view):
     values = view["state"]["values"]
@@ -91,7 +132,6 @@ def handle_modal_submit(ack, body, client, view):
     invited_users = values["users_block"]["users_input"]["selected_users"]
     user_id = body["user"]["id"]
 
-    # Validering: Bruker må fylle ut Enten ny ELLER eksisterende kanal
     if (new_channel and existing_channel) or (not new_channel and not existing_channel):
         ack(response_action="errors", errors={
             "new_channel_block": "Du må fylle ut ETT av feltene (nytt navn eller eksisterende kanal)."
@@ -103,11 +143,8 @@ def handle_modal_submit(ack, body, client, view):
     try:
         # A. Håndter kanal
         if new_channel:
-            # 1. Fjern eventuell '#' i starten og tomrom rundt
             clean_name = new_channel.strip().lstrip("#")
-            # 2. Gjør om til små bokstaver og erstatt norske tegn
             clean_name = clean_name.lower().replace("æ", "ae").replace("ø", "o").replace("å", "a")
-            # 3. Erstatt ulovlige tegn/mellomrom med bindestrek
             clean_name = re.sub(r'[^a-z0-9-_]', '-', clean_name)
             clean_name = re.sub(r'-+', '-', clean_name).strip('-')
 
@@ -126,22 +163,27 @@ def handle_modal_submit(ack, body, client, view):
             try:
                 client.conversations_invite(channel=channel_id, users=u)
             except Exception:
-                pass  # Ignorer om bruker allerede er i kanalen
+                pass
 
-        # C. Send velkomstmelding i breaking-kanalen
+        # C. Melding i ny kanal
         client.chat_postMessage(
             channel=channel_id,
-            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n*Denne kanalen settes automatisk til privat om 15 minutter.*"
+            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n*Kanalen skal settes til privat om 15 minutter.*"
         )
 
-        # D. Send varsling i felleskanal (bytt eventuelt ut kanalnavnet hvis det heter noe annet hos dere)
-        client.chat_postMessage(
-            channel="akt-ny-sakskanal",
-            text=f"<@{user_id}> har opprettet/koblet opp <#{channel_id}>. Ansvarlig reportasjeleder: <@{leader}>."
-        )
+        # D. Varsling i felleskanal via .env
+        varsling_kanal = os.environ.get("VARSLING_CHANNEL_ID")
+        if varsling_kanal:
+            try:
+                client.chat_postMessage(
+                    channel=varsling_kanal,
+                    text=f"<@{user_id}> har opprettet/koblet opp <#{channel_id}>. Ansvarlig reportasjeleder: <@{leader}>."
+                )
+            except Exception as e:
+                print(f"Kunne ikke sende varsel til felleskanal: {e}")
 
-        # E. Start bakgrunnstimer på 15 minutter (900 sekunder)
-        convert_to_private_later(client, channel_id, delay_seconds=10)
+        # E. Start 15-minutters timer (900 sekunder)
+        remind_to_make_private(client, channel_id, user_id, delay_seconds=900)
 
     except Exception as e:
         print(f"Feil i prosesseringen: {e}")
