@@ -390,21 +390,37 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
-        # H. Melding i den nye/eksisterende kanalen
-        velkomst_tekst = f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp et Canvas (Arbeidsliste) øverst i fane-menyen.*"
-        
-        if kilde_list_url:
-            velkomst_tekst += f"\n📊 *Kildeoversikt:* <{kilde_list_url}|Trykk her for å åpne Listen>"
-        if verifisering_list_url:
-            velkomst_tekst += f"\n🔍 *Verifisering:* <{verifisering_list_url}|Trykk her for å åpne Listen>"
-
-        velkomst_tekst += "\n\n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
+# H. Melding i den nye/eksisterende kanalen (med stor overskrift)
+        kilde_str = f"\n📊 *Kildeoversikt:* <{kilde_list_url}|Trykk her for å åpne Listen>" if kilde_list_url else ""
+        verif_str = f"\n🔍 *Verifisering:* <{verifisering_list_url}|Trykk her for å åpne Listen>" if verifisering_list_url else ""
 
         client.chat_postMessage(
             channel=channel_id,
-            text=velkomst_tekst,
-            unfurl_links=False,   # Stopper forhåndsvisning av lenker
-            unfurl_media=False    # Stopper store bilder/media fra lenker
+            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.",  # Vises i push-varsel
+            unfurl_links=False,
+            unfurl_media=False,
+            blocks=[
+                {
+                    "type": "header",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "🚨 Velkommen til kanalen",
+                        "emoji": True
+                    }
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            f"Ansvarlig reportasjeleder er <@{leader}>.\n\n"
+                            f"📝 *Bruk canvaset (Arbeidsliste) øverst i fane-menyen.*"
+                            f"{kilde_str}{verif_str}\n\n"
+                            f"⏱️ *Husk at denne kanalen _skal_ settes til privat om 15 minutter.*"
+                        )
+                    }
+                }
+            ]
         )
 
         # I. Varsling i kanalen der kommandoen ble startet fra
