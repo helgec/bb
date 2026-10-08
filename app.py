@@ -24,7 +24,7 @@ def open_breaking_modal(ack, body, client):
             "callback_id": "breaking_modal",
             "private_metadata": origin_channel_id,
             "title": {"type": "plain_text", "text": "Ny Breaking-kanal"},
-            "submit": {"type": "plain_text", "text": "Start prosess"},
+            "submit": {"type": "plain_text", "text": "Opprett"},
             "close": {"type": "plain_text", "text": "Avbryt"},
             "blocks": [
                 {
