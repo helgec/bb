@@ -348,7 +348,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"FEIL VED OPPRETTELSE AV VERIFISERINGSLISTE: {e}")
 
-        # G. Opprett Channel Canvas (Arbeidsliste)
+       # G. Opprett Channel Canvas (Arbeidsliste)
         canvas_url = ""
         try:
             kilde_punkt = f"* [📋 Gå til Kildeoversikt]({kilde_list_url})" if kilde_list_url else "* _Kunne ikke opprette Kildeoversikt automatisk._"
@@ -393,6 +393,20 @@ def handle_modal_submit(ack, body, client, view):
             canvas_id = canvas_res.get("canvas_id") or canvas_res.get("canvas", {}).get("id")
             if canvas_id:
                 canvas_url = f"https://app.slack.com/canvas/{team_id}/{canvas_id}"
+                
+                # --- NY KODE: Gi kanalen tilgang til Canvaset ---
+                try:
+                    access_canvas_res = client.api_call(
+                        api_method="conversations.canvases.access.set", # Sørg for at denne API-metoden er riktig for ditt oppsett, kan av og til hete canvases.access.set
+                        json={
+                            "canvas_id": canvas_id,
+                            "access_level": "write",
+                            "channel_ids": [channel_id]
+                        }
+                    )
+                    print(f"DEBUG - Canvas kanaltilgang: {access_canvas_res}")
+                except Exception as e:
+                    print(f"DEBUG - Feilet med å sette tilgang på Canvas: {e}")
 
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
