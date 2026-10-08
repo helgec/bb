@@ -24,7 +24,7 @@ def open_breaking_modal(ack, body, client):
             "callback_id": "breaking_modal",
             "private_metadata": origin_channel_id,
             "title": {"type": "plain_text", "text": "Ny Breaking-kanal"},
-            "submit": {"type": "plain_text", "text": "Opprett"},
+            "submit": {"type": "plain_text", "text": "Start prosess"},
             "close": {"type": "plain_text", "text": "Avbryt"},
             "blocks": [
                 {
@@ -160,9 +160,9 @@ def handle_modal_submit(ack, body, client, view):
     values = view["state"]["values"]
     new_channel = values["new_channel_block"]["new_channel_input"].get("value")
     existing_channel = values["existing_channel_block"]["existing_channel_input"].get("selected_channel")
-    leader = values["leader_block"]["leader_input"]["selected_user"]
+    leader = values["leader_block"]["leader_input"].get("selected_user")
     invited_users = values["users_block"]["users_input"].get("selected_users", [])
-    user_id = body["user"]["id"]
+    user_id = body["user"]["id"]  # ID-en til den som startet kommandoen
     origin_channel_id = view.get("private_metadata")
 
     if (new_channel and existing_channel) or (not new_channel and not existing_channel):
@@ -190,8 +190,10 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # B. Samle opp alle brukere som skal ha tilgang
-        all_to_invite = set(invited_users + [leader, user_id])
+        # B. Samle opp alle brukere som skal ha tilgang (inkludert oppretteren user_id)
+        all_to_invite = set(invited_users + [user_id])
+        if leader:
+            all_to_invite.add(leader)
 
         # Hent faste enkeltbrukere fra .env
         auto_users_string = os.environ.get("AUTO_INVITE_USER_ID")
@@ -215,24 +217,32 @@ def handle_modal_submit(ack, body, client, view):
                 except Exception as e:
                     print(f"Advarsel: Kunne ikke hente gruppe {g_id}. Feil: {e}")
 
-        # C. INVITÉR BRUKERE TIL KANALEN FØRST
+        # C. INVITÉR BRUKERE TIL KANALEN (Med fallback til en-og-en hvis samleinvitasjon feiler)
         if all_to_invite:
             try:
                 users_string = ",".join(all_to_invite)
                 client.conversations_invite(channel=channel_id, users=users_string)
             except Exception as e:
-                print(f"Advarsel: Kunne ikke invitere brukere direkte til kanalen: {e}")
+                print(f"Samleinvitasjon feilet ({e}), prøver å invitere brukere én og én...")
+                for single_user in all_to_invite:
+                    try:
+                        client.conversations_invite(channel=channel_id, users=single_user)
+                    except Exception:
+                        pass  # Ignorerer feil dersom brukeren allerede er i kanalen
 
-        # D. Hent ekte navn på reportasjeleder
-        leader_display_name = f"<@{leader}>"
-        try:
-            user_info = client.users_info(user=leader)
-            profile = user_info.get("user", {}).get("profile", {})
-            real_name = profile.get("real_name") or profile.get("display_name") or user_info.get("user", {}).get("name")
-            if real_name:
-                leader_display_name = real_name
-        except Exception as e:
-            print(f"Kunne ikke slå opp visningsnavn for leder: {e}")
+        # D. Hent ekte navn på reportasjeleder (eller vis tekst om ingen er valgt)
+        if leader:
+            leader_display_name = f"<@{leader}>"
+            try:
+                user_info = client.users_info(user=leader)
+                profile = user_info.get("user", {}).get("profile", {})
+                real_name = profile.get("real_name") or profile.get("display_name") or user_info.get("user", {}).get("name")
+                if real_name:
+                    leader_display_name = real_name
+            except Exception as e:
+                print(f"Kunne ikke slå opp visningsnavn for leder: {e}")
+        else:
+            leader_display_name = "_Ingen valgt_"
 
         team_id = body["team"]["id"]
 
@@ -349,7 +359,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"FEIL VED OPPRETTELSE AV VERIFISERINGSLISTE: {e}")
 
-       # G. Opprett Channel Canvas (Arbeidsliste)
+        # G. Opprett Channel Canvas (Arbeidsliste)
         canvas_url = ""
         try:
             kilde_punkt = f"* [📋 Gå til Kildeoversikt]({kilde_list_url})" if kilde_list_url else "* _Kunne ikke opprette Kildeoversikt automatisk._"
@@ -398,14 +408,16 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
-        # H. Melding i den nye/eksisterende kanalen (med stor overskrift og lenke til Canvas)
+        # H. Melding i den nye/eksisterende kanalen
         canvas_str = f"\n📝 *Arbeidsliste (Canvas):* <{canvas_url}|Trykk her for å åpne>" if canvas_url else "\n📝 *Bruk canvaset (Arbeidsliste) øverst i fane-menyen.*"
         kilde_str = f"\n📊 *Kildeoversikt:* <{kilde_list_url}|Trykk her for å åpne Listen>" if kilde_list_url else ""
         verif_str = f"\n🔍 *Verifisering:* <{verifisering_list_url}|Trykk her for å åpne Listen>" if verifisering_list_url else ""
+        
+        leader_text = f"Ansvarlig reportasjeleder er <@{leader}>." if leader else "Ingen ansvarlig reportasjeleder er valgt ennå."
 
         client.chat_postMessage(
             channel=channel_id,
-            text=f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.",  # Vises i push-varsel
+            text=f"Velkommen til kanalen! {leader_text}",
             unfurl_links=False,
             unfurl_media=False,
             blocks=[
@@ -422,7 +434,7 @@ def handle_modal_submit(ack, body, client, view):
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            f"Ansvarlig reportasjeleder er <@{leader}>.\n"
+                            f"{leader_text}\n"
                             f"{canvas_str}"
                             f"{kilde_str}"
                             f"{verif_str}\n\n"
@@ -434,11 +446,12 @@ def handle_modal_submit(ack, body, client, view):
         )
 
         # I. Varsling i kanalen der kommandoen ble startet fra
+        leader_info_varsel = f" Ansvarlig reportasjeleder: <@{leader}>." if leader else ""
         if origin_channel_id:
             try:
                 client.chat_postMessage(
                     channel=origin_channel_id,
-                    text=f"🚨 *Ny breaking-kanal opprettet!*\n<@{user_id}> har opprettet/koblet opp <#{channel_id}>. Ansvarlig reportasjeleder: <@{leader}>.\n\n👉 Trykk på <#{channel_id}> for å gå til kanalen og bli med."
+                    text=f"🚨 *Ny breaking-kanal opprettet!*\n<@{user_id}> har opprettet/koblet opp <#{channel_id}>.{leader_info_varsel}\n\n👉 Trykk på <#{channel_id}> for å gå til kanalen og bli med."
                 )
             except Exception as e:
                 print(f"Kunne ikke sende melding til starter-kanal: {e}")
@@ -449,7 +462,7 @@ def handle_modal_submit(ack, body, client, view):
             try:
                 client.chat_postMessage(
                     channel=varsling_kanal,
-                    text=f"<@{user_id}> har opprettet/koblet opp <#{channel_id}>. Ansvarlig reportasjeleder: <@{leader}>."
+                    text=f"<@{user_id}> har opprettet/koblet opp <#{channel_id}>.{leader_info_varsel}"
                 )
             except Exception as e:
                 print(f"Kunne ikke sende varsel til felleskanal: {e}")
