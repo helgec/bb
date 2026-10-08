@@ -400,16 +400,16 @@ def handle_modal_submit(ack, body, client, view):
                 }
             )
             
-            # Hent Canvas ID og generer slack:// dyp-lenke
+            # Hent Canvas ID og formater gyldig Slack HTTPS-lenke
             canvas_id = canvas_res.get("canvas_id") or canvas_res.get("canvas", {}).get("id")
             if canvas_id:
-                canvas_url = f"slack://canvas?team={team_id}&id={canvas_id}"
+                canvas_url = f"https://app.slack.com/client/{team_id}/{channel_id}/canvas/{canvas_id}"
 
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
         # H. Melding i den nye/eksisterende kanalen
-        canvas_str = f"\n📝 *Arbeidsliste (Canvas):* <{canvas_url}|Trykk her for å åpne direktelenke>" if canvas_url else "\n📝 *Bruk canvaset (Arbeidsliste) øverst i fane-menyen.*"
+        canvas_str = f"\n📝 *Arbeidsliste (Canvas):* <{canvas_url}|Åpne Arbeidsliste> _(eller trykk på fanen øverst i kanalen)_" if canvas_url else "\n📝 *Bruk canvaset (Arbeidsliste) øverst i fane-menyen.*"
         kilde_str = f"\n📊 *Kildeoversikt:* <{kilde_list_url}|Trykk her for å åpne Listen>" if kilde_list_url else ""
         verif_str = f"\n🔍 *Verifisering:* <{verifisering_list_url}|Trykk her for å åpne Listen>" if verifisering_list_url else ""
         
