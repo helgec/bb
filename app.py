@@ -15,14 +15,14 @@ app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 @app.command("/breaking")
 def open_breaking_modal(ack, body, client):
     ack()
-    origin_channel_id = body["channel_id"]  # Henter ID til kanalen kommandoen ble startet i
+    origin_channel_id = body["channel_id"]
 
     client.views_open(
         trigger_id=body["trigger_id"],
         view={
             "type": "modal",
             "callback_id": "breaking_modal",
-            "private_metadata": origin_channel_id,  # Lagrer kanal-ID-en i skjemaet
+            "private_metadata": origin_channel_id,
             "title": {"type": "plain_text", "text": "Ny Breaking-kanal"},
             "submit": {"type": "plain_text", "text": "Start prosess"},
             "close": {"type": "plain_text", "text": "Avbryt"},
@@ -162,7 +162,7 @@ def handle_modal_submit(ack, body, client, view):
     leader = values["leader_block"]["leader_input"]["selected_user"]
     invited_users = values["users_block"]["users_input"].get("selected_users", [])
     user_id = body["user"]["id"]
-    origin_channel_id = view.get("private_metadata")  # Henter ut opprinnelig kanal-ID
+    origin_channel_id = view.get("private_metadata")
 
     if (new_channel and existing_channel) or (not new_channel and not existing_channel):
         ack(response_action="errors", errors={
@@ -214,15 +214,15 @@ def handle_modal_submit(ack, body, client, view):
                 except Exception as e:
                     print(f"Advarsel: Kunne ikke hente gruppe {g_id}. Feil: {e}")
 
-        # C. INVITÉR BRUKERE NÅ (Må skje FØR listetilgang settes)
+        # C. INVITÉR BRUKERE TIL KANALEN FØRST
         if all_to_invite:
             try:
                 users_string = ",".join(all_to_invite)
                 client.conversations_invite(channel=channel_id, users=users_string)
             except Exception as e:
-                print(f"Advarsel: Kunne ikke invitere alle brukere direkte: {e}")
+                print(f"Advarsel: Kunne ikke invitere brukere direkte til kanalen: {e}")
 
-        # D. Hent ekte navn på reportasjeleder for pen visning i Canvas
+        # D. Hent ekte navn på reportasjeleder
         leader_display_name = f"<@{leader}>"
         try:
             user_info = client.users_info(user=leader)
@@ -234,6 +234,9 @@ def handle_modal_submit(ack, body, client, view):
             print(f"Kunne ikke slå opp visningsnavn for leder: {e}")
 
         team_id = body["team"]["id"]
+
+        # Filtrer kun ut gyldige bruker-ID-er (starter på U eller W) for listetilgang
+        valid_user_ids = [u for u in all_to_invite if u.startswith("U") or u.startswith("W")]
 
         # E. Opprett Kildeoversikt-liste & gi tilgang
         kilde_list_url = ""
@@ -255,16 +258,29 @@ def handle_modal_submit(ack, body, client, view):
             if kilde_id:
                 kilde_list_url = f"https://app.slack.com/lists/{team_id}/{kilde_id}"
                 
-                # Gi tilgang til kanalen og enkeltbrukere
-                client.api_call(
+                # 1. Gi tilgang til hele kanalen
+                access_chan_res = client.api_call(
                     api_method="slackLists.access.set",
                     json={
                         "list_id": kilde_id,
                         "access_level": "write",
-                        "channel_ids": [channel_id],
-                        "user_ids": list(all_to_invite)
+                        "channel_ids": [channel_id]
                     }
                 )
+                print(f"DEBUG - Kildeoversikt kanaltilgang: {access_chan_res}")
+
+                # 2. Gi tilgang til spesifikke brukere
+                if valid_user_ids:
+                    access_user_res = client.api_call(
+                        api_method="slackLists.access.set",
+                        json={
+                            "list_id": kilde_id,
+                            "access_level": "write",
+                            "user_ids": valid_user_ids
+                        }
+                    )
+                    print(f"DEBUG - Kildeoversikt brukertilgang: {access_user_res}")
+
                 try:
                     client.bookmarks_add(
                         channel_id=channel_id,
@@ -297,16 +313,29 @@ def handle_modal_submit(ack, body, client, view):
             if verif_id:
                 verifisering_list_url = f"https://app.slack.com/lists/{team_id}/{verif_id}"
                 
-                # Gi tilgang til kanalen og enkeltbrukere
-                client.api_call(
+                # 1. Gi tilgang til hele kanalen
+                access_chan_res = client.api_call(
                     api_method="slackLists.access.set",
                     json={
                         "list_id": verif_id,
                         "access_level": "write",
-                        "channel_ids": [channel_id],
-                        "user_ids": list(all_to_invite)
+                        "channel_ids": [channel_id]
                     }
                 )
+                print(f"DEBUG - Verifisering kanaltilgang: {access_chan_res}")
+
+                # 2. Gi tilgang til spesifikke brukere
+                if valid_user_ids:
+                    access_user_res = client.api_call(
+                        api_method="slackLists.access.set",
+                        json={
+                            "list_id": verif_id,
+                            "access_level": "write",
+                            "user_ids": valid_user_ids
+                        }
+                    )
+                    print(f"DEBUG - Verifisering brukertilgang: {access_user_res}")
+
                 try:
                     client.bookmarks_add(
                         channel_id=channel_id,
@@ -319,7 +348,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"FEIL VED OPPRETTELSE AV VERIFISERINGSLISTE: {e}")
 
-        # G. Opprett Channel Canvas (Arbeidsliste) med formaterte navneoppslag
+        # G. Opprett Channel Canvas (Arbeidsliste)
         try:
             kilde_punkt = f"* [📋 Gå til Kildeoversikt]({kilde_list_url})" if kilde_list_url else "* _Kunne ikke opprette Kildeoversikt automatisk._"
             verif_punkt = f"* [🔍 Gå til Verifisering]({verifisering_list_url})" if verifisering_list_url else "* _Kunne ikke opprette Verifiseringsliste automatisk._"
