@@ -357,6 +357,9 @@ def handle_modal_submit(ack, body, client, view):
                 # 🚨 Sakslogg
 
                 ## ❓ Hvem, hva, hvor?
+                *
+                *
+                *
 
                 ### 👥 Roller
                 * **Reportasjeleder:** {leader_display_name}
@@ -364,12 +367,13 @@ def handle_modal_submit(ack, body, client, view):
                 * **Hovedmanus:**
 
                 ### 📌 Ubekrefta informasjon
-                
+                *
+                *
+                *
 
                 ### 📞 Viktige kontakter & kilder
                 {kilde_punkt}
                 {verif_punkt}
-                * _Sjekk også Listene øverst i kanalen_
 
                 ### 🔗 Lenker og dokumenter
                 * 
