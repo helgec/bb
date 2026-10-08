@@ -189,78 +189,7 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # B1. Opprett standard Channel Canvas (Uten tabell)
-        try:
-            canvas_markdown = textwrap.dedent(f"""\
-                ### 👥 Roller
-                * **Reportasjeleder:** ![](@{leader})
-                * **Reporter:** _Skriv navn_
-
-                ### 🔗 Lenker og dokumenter
-                * (Lim inn lenker her)""").strip()
-
-            client.conversations_canvases_create(
-                channel_id=channel_id,
-                title="Arbeidsliste",
-                document_content={
-                    "type": "markdown",
-                    "markdown": canvas_markdown
-                }
-            )
-        except Exception as e:
-            print(f"Advarsel: Kunne ikke opprette canvas: {e}")
-
-# B2. Opprett Slack List (Kildeoversikt) og fest som fane
-        list_url = ""
-        try:
-            list_res = client.api_call(
-                api_method="slackLists.create",
-                json={
-                    "name": "Kildeoversikt",
-                    "schema": [
-                        {"key": "kilde", "name": "Kilde", "type": "text", "is_primary_column": True},
-                        {"key": "siste_kontakt", "name": "Siste kontakt", "type": "date"},
-                        {"key": "ansvarlig", "name": "Ansvarlig", "type": "user"},
-                        {"key": "kontaktinfo", "name": "Kontaktinfo", "type": "text"},
-                        {"key": "kommentar", "name": "Kommentar", "type": "text"}
-                    ]
-                }
-            )
-            
-            list_id = list_res.get("list_id")
-            
-            if list_id:
-                team_id = body["team"]["id"]
-                list_url = f"https://app.slack.com/lists/{team_id}/{list_id}"
-
-                # 1. Del listen med kanalen (gir alle medlemmene skrivetilgang)
-                try:
-                    client.api_call(
-                        api_method="slackLists.access.set",
-                        json={
-                            "list_id": list_id,
-                            "access_level": "write",
-                            "channel_ids": [channel_id]
-                        }
-                    )
-                except Exception as e:
-                    print(f"Advarsel: Kunne ikke dele listen med kanalen: {e}")
-                
-                # 2. Fest listen som en fane (bokmerke)
-                try:
-                    client.bookmarks_add(
-                        channel_id=channel_id,
-                        title="Kildeoversikt",
-                        type="link",
-                        link=list_url
-                    )
-                except Exception as e:
-                    print(f"Advarsel: Kunne ikke feste listen som fane: {e}")
-
-        except Exception as e:
-            print(f"FEIL VED OPPRETTELSE AV LISTE: {e}")
-            
-   # C. Inviter brukere
+        # B. Forbered invitasjoner
         all_to_invite = set(invited_users + [leader, user_id])
 
         # Hent faste enkeltbrukere fra .env
@@ -285,7 +214,127 @@ def handle_modal_submit(ack, body, client, view):
                 except Exception as e:
                     print(f"Advarsel: Kunne ikke hente gruppe {g_id}. Feil: {e}")
 
-        # Utfør selve invitasjonen av alle på listen i ÉN samlet operasjon (Batch)
+        team_id = body["team"]["id"]
+
+        # C1. Opprett Kildeoversikt-liste
+        kilde_list_url = ""
+        try:
+            kilde_res = client.api_call(
+                api_method="slackLists.create",
+                json={
+                    "name": "Kildeoversikt",
+                    "schema": [
+                        {"key": "kilde", "name": "Kilde", "type": "text", "is_primary_column": True},
+                        {"key": "siste_kontakt", "name": "Siste kontakt", "type": "date"},
+                        {"key": "ansvarlig", "name": "Ansvarlig", "type": "user"},
+                        {"key": "kontaktinfo", "name": "Kontaktinfo", "type": "text"},
+                        {"key": "kommentar", "name": "Kommentar", "type": "text"}
+                    ]
+                }
+            )
+            kilde_id = kilde_res.get("list_id")
+            if kilde_id:
+                kilde_list_url = f"https://app.slack.com/lists/{team_id}/{kilde_id}"
+                client.api_call(
+                    api_method="slackLists.access.set",
+                    json={
+                        "list_id": kilde_id,
+                        "access_level": "write",
+                        "channel_ids": [channel_id],
+                        "user_ids": list(all_to_invite)
+                    }
+                )
+                try:
+                    client.bookmarks_add(
+                        channel_id=channel_id,
+                        title="Kildeoversikt",
+                        type="link",
+                        link=kilde_list_url
+                    )
+                except Exception as e:
+                    print(f"Advarsel: Kunne ikke feste Kildeoversikt som fane: {e}")
+        except Exception as e:
+            print(f"FEIL VED OPPRETTELSE AV KILDEOVERSIKT: {e}")
+
+        # C2. Opprett Verifisering-liste
+        verifisering_list_url = ""
+        try:
+            verif_res = client.api_call(
+                api_method="slackLists.create",
+                json={
+                    "name": "Verifisering",
+                    "schema": [
+                        {"key": "url", "name": "URL", "type": "text", "is_primary_column": True},
+                        {"key": "verifisert", "name": "Verifisert?", "type": "checkbox"},
+                        {"key": "verifisert_av", "name": "Verifisert av", "type": "user"},
+                        {"key": "kommentar", "name": "Kommentar", "type": "text"},
+                        {"key": "potionlenke", "name": "Potionlenke", "type": "text"}
+                    ]
+                }
+            )
+            verif_id = verif_res.get("list_id")
+            if verif_id:
+                verifisering_list_url = f"https://app.slack.com/lists/{team_id}/{verif_id}"
+                client.api_call(
+                    api_method="slackLists.access.set",
+                    json={
+                        "list_id": verif_id,
+                        "access_level": "write",
+                        "channel_ids": [channel_id],
+                        "user_ids": list(all_to_invite)
+                    }
+                )
+                try:
+                    client.bookmarks_add(
+                        channel_id=channel_id,
+                        title="Verifisering",
+                        type="link",
+                        link=verifisering_list_url
+                    )
+                except Exception as e:
+                    print(f"Advarsel: Kunne ikke feste Verifisering som fane: {e}")
+        except Exception as e:
+            print(f"FEIL VED OPPRETTELSE AV VERIFISERINGSLISTE: {e}")
+
+        # C3. Opprett Channel Canvas (Arbeidsliste) med lenker til Begge listene
+        try:
+            kilde_punkt = f"* [📋 Gå til Kildeoversikt]({kilde_list_url})" if kilde_list_url else "* _Kunne ikke opprette Kildeoversikt automatisk._"
+            verif_punkt = f"* [🔍 Gå til Verifisering]({verifisering_list_url})" if verifisering_list_url else "* _Kunne ikke opprette Verifiseringsliste automatisk._"
+
+            canvas_markdown = textwrap.dedent(f"""\
+                # 🚨 Sakslogg
+
+                ## ❓ Hvem, hva, hvor?
+
+                ### 👥 Roller
+                * **Reportasjeleder:** <@{leader}>
+                * **Rykk:** 
+                * **Hovedmanus:**
+
+                ### 📌 Ubekrefta informasjon
+                
+
+                ### 📞 Viktige kontakter & kilder
+                {kilde_punkt}
+                {verif_punkt}
+                * _Sjekk også Listene øverst i kanalen_
+
+                ### 🔗 Lenker og dokumenter
+                * 
+                """).strip()
+
+            client.conversations_canvases_create(
+                channel_id=channel_id,
+                title="Arbeidsliste",
+                document_content={
+                    "type": "markdown",
+                    "markdown": canvas_markdown
+                }
+            )
+        except Exception as e:
+            print(f"Advarsel: Kunne ikke opprette canvas: {e}")
+
+        # D. Utfør batch-invitasjonen (alt i én smekk)
         if all_to_invite:
             try:
                 users_string = ",".join(all_to_invite)
@@ -293,11 +342,13 @@ def handle_modal_submit(ack, body, client, view):
             except Exception as e:
                 print(f"Advarsel: Kunne ikke invitere alle brukere: {e}")
 
-        # D. Melding i den nye/eksisterende kanalen
+        # E. Melding i den nye/eksisterende kanalen
         velkomst_tekst = f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp et Canvas (Arbeidsliste) øverst i fane-menyen.*"
         
-        if list_url:
-            velkomst_tekst += f"\n📊 *Jeg har også opprettet en Kildeoversikt som ligger som fane øverst i kanalen:* <{list_url}|Trykk her for å åpne Listen> (Pinnes ved å trykke + List og deretter velge den nyeste kildelista.)"
+        if kilde_list_url:
+            velkomst_tekst += f"\n📊 *Kildeoversikt:* <{kilde_list_url}|Trykk her for å åpne Listen>"
+        if verifisering_list_url:
+            velkomst_tekst += f"\n🔍 *Verifisering:* <{verifisering_list_url}|Trykk her for å åpne Listen>"
 
         velkomst_tekst += "\n\n*Husk at denne kanalen skal settes til privat om 15 minutter.*"
 
@@ -306,7 +357,7 @@ def handle_modal_submit(ack, body, client, view):
             text=velkomst_tekst
         )
 
-        # E. Varsling i kanalen der kommandoen ble startet fra
+        # F. Varsling i kanalen der kommandoen ble startet fra
         if origin_channel_id:
             try:
                 client.chat_postMessage(
@@ -316,7 +367,7 @@ def handle_modal_submit(ack, body, client, view):
             except Exception as e:
                 print(f"Kunne ikke sende melding til starter-kanal: {e}")
 
-        # F. Varsling i felleskanal via .env (hvis definert og ulik starter-kanalen)
+        # G. Varsling i felleskanal via .env
         varsling_kanal = os.environ.get("VARSLING_CHANNEL_ID")
         if varsling_kanal and varsling_kanal != origin_channel_id:
             try:
@@ -327,7 +378,7 @@ def handle_modal_submit(ack, body, client, view):
             except Exception as e:
                 print(f"Kunne ikke sende varsel til felleskanal: {e}")
 
-        # G. Start 15-minutters timer (900 sekunder)
+        # H. Start 15-minutters timer (900 sekunder)
         remind_to_make_private(client, channel_id, user_id, delay_seconds=900)
 
     except Exception as e:
