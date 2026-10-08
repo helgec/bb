@@ -360,7 +360,6 @@ def handle_modal_submit(ack, body, client, view):
             print(f"FEIL VED OPPRETTELSE AV VERIFISERINGSLISTE: {e}")
 
       # G. Opprett Channel Canvas (Arbeidsliste)
-        canvas_url = ""
         try:
             kilde_punkt = f"* [📋 Gå til Kildeoversikt]({kilde_list_url})" if kilde_list_url else "* _Kunne ikke opprette Kildeoversikt automatisk._"
             verif_punkt = f"* [🔍 Gå til Verifisering]({verifisering_list_url})" if verifisering_list_url else "* _Kunne ikke opprette Verifiseringsliste automatisk._"
@@ -391,7 +390,7 @@ def handle_modal_submit(ack, body, client, view):
                 * 
                 """).strip()
 
-            canvas_res = client.conversations_canvases_create(
+            client.conversations_canvases_create(
                 channel_id=channel_id,
                 title="Arbeidsliste",
                 document_content={
@@ -399,17 +398,11 @@ def handle_modal_submit(ack, body, client, view):
                     "markdown": canvas_markdown
                 }
             )
-            
-            # Hent Canvas ID og formater gyldig Slack HTTPS-lenke
-            canvas_id = canvas_res.get("canvas_id") or canvas_res.get("canvas", {}).get("id")
-            if canvas_id:
-                canvas_url = f"https://app.slack.com/client/{team_id}/{channel_id}/canvas/{canvas_id}"
 
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
         # H. Melding i den nye/eksisterende kanalen
-        canvas_str = f"\n📝 *Arbeidsliste (Canvas):* <{canvas_url}|Åpne Arbeidsliste> _(eller trykk på fanen øverst i kanalen)_" if canvas_url else "\n📝 *Bruk canvaset (Arbeidsliste) øverst i fane-menyen.*"
         kilde_str = f"\n📊 *Kildeoversikt:* <{kilde_list_url}|Trykk her for å åpne Listen>" if kilde_list_url else ""
         verif_str = f"\n🔍 *Verifisering:* <{verifisering_list_url}|Trykk her for å åpne Listen>" if verifisering_list_url else ""
         
@@ -417,7 +410,7 @@ def handle_modal_submit(ack, body, client, view):
 
         client.chat_postMessage(
             channel=channel_id,
-            text=f"Velkommen til kanalen! {leader_text}",
+            text=f"Velkommen til kanalen! {leader_text}",  # Vises i push-varsel
             unfurl_links=False,
             unfurl_media=False,
             blocks=[
@@ -434,8 +427,8 @@ def handle_modal_submit(ack, body, client, view):
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            f"{leader_text}\n"
-                            f"{canvas_str}"
+                            f"{leader_text}\n\n"
+                            f"📝 *Arbeidsliste (Canvas) ligger nå som en fane helt øverst i denne kanalen.*\n"
                             f"{kilde_str}"
                             f"{verif_str}\n\n"
                             f"⏱️ *Husk at denne kanalen _skal_ settes til privat om 15 minutter.*"
@@ -444,17 +437,6 @@ def handle_modal_submit(ack, body, client, view):
                 }
             ]
         )
-        # I. Varsling i kanalen der kommandoen ble startet fra
-        leader_info_varsel = f" Ansvarlig reportasjeleder: <@{leader}>." if leader else ""
-        if origin_channel_id:
-            try:
-                client.chat_postMessage(
-                    channel=origin_channel_id,
-                    text=f"🚨 *Ny breaking-kanal opprettet!*\n<@{user_id}> har opprettet/koblet opp <#{channel_id}>.{leader_info_varsel}\n\n👉 Trykk på <#{channel_id}> for å gå til kanalen og bli med."
-                )
-            except Exception as e:
-                print(f"Kunne ikke sende melding til starter-kanal: {e}")
-
         # J. Varsling i felleskanal via .env
         varsling_kanal = os.environ.get("VARSLING_CHANNEL_ID")
         if varsling_kanal and varsling_kanal != origin_channel_id:
