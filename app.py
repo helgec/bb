@@ -173,7 +173,7 @@ def handle_modal_submit(ack, body, client, view):
     ack()
 
     try:
-        # A. Håndter kanal
+        # A. Håndter opprettelse eller tilkobling til kanal
         if new_channel:
             clean_name = new_channel.strip().lstrip("#")
             clean_name = clean_name.lower().replace("æ", "a").replace("ø", "o").replace("å", "a")
@@ -189,7 +189,7 @@ def handle_modal_submit(ack, body, client, view):
             except Exception:
                 pass
 
-        # B. Forbered invitasjoner
+        # B. Samle opp alle brukere som skal ha tilgang
         all_to_invite = set(invited_users + [leader, user_id])
 
         # Hent faste enkeltbrukere fra .env
@@ -214,9 +214,28 @@ def handle_modal_submit(ack, body, client, view):
                 except Exception as e:
                     print(f"Advarsel: Kunne ikke hente gruppe {g_id}. Feil: {e}")
 
+        # C. INVITÉR BRUKERE NÅ (Må skje FØR listetilgang settes)
+        if all_to_invite:
+            try:
+                users_string = ",".join(all_to_invite)
+                client.conversations_invite(channel=channel_id, users=users_string)
+            except Exception as e:
+                print(f"Advarsel: Kunne ikke invitere alle brukere direkte: {e}")
+
+        # D. Hent ekte navn på reportasjeleder for pen visning i Canvas
+        leader_display_name = f"<@{leader}>"
+        try:
+            user_info = client.users_info(user=leader)
+            profile = user_info.get("user", {}).get("profile", {})
+            real_name = profile.get("real_name") or profile.get("display_name") or user_info.get("user", {}).get("name")
+            if real_name:
+                leader_display_name = real_name
+        except Exception as e:
+            print(f"Kunne ikke slå opp visningsnavn for leder: {e}")
+
         team_id = body["team"]["id"]
 
-        # C1. Opprett Kildeoversikt-liste
+        # E. Opprett Kildeoversikt-liste & gi tilgang
         kilde_list_url = ""
         try:
             kilde_res = client.api_call(
@@ -232,9 +251,11 @@ def handle_modal_submit(ack, body, client, view):
                     ]
                 }
             )
-            kilde_id = kilde_res.get("list_id")
+            kilde_id = kilde_res.get("list_id") or kilde_res.get("list", {}).get("id")
             if kilde_id:
                 kilde_list_url = f"https://app.slack.com/lists/{team_id}/{kilde_id}"
+                
+                # Gi tilgang til kanalen og enkeltbrukere
                 client.api_call(
                     api_method="slackLists.access.set",
                     json={
@@ -256,7 +277,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"FEIL VED OPPRETTELSE AV KILDEOVERSIKT: {e}")
 
-        # C2. Opprett Verifisering-liste
+        # F. Opprett Verifisering-liste & gi tilgang
         verifisering_list_url = ""
         try:
             verif_res = client.api_call(
@@ -272,9 +293,11 @@ def handle_modal_submit(ack, body, client, view):
                     ]
                 }
             )
-            verif_id = verif_res.get("list_id")
+            verif_id = verif_res.get("list_id") or verif_res.get("list", {}).get("id")
             if verif_id:
                 verifisering_list_url = f"https://app.slack.com/lists/{team_id}/{verif_id}"
+                
+                # Gi tilgang til kanalen og enkeltbrukere
                 client.api_call(
                     api_method="slackLists.access.set",
                     json={
@@ -296,7 +319,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"FEIL VED OPPRETTELSE AV VERIFISERINGSLISTE: {e}")
 
-        # C3. Opprett Channel Canvas (Arbeidsliste) med lenker til Begge listene
+        # G. Opprett Channel Canvas (Arbeidsliste) med formaterte navneoppslag
         try:
             kilde_punkt = f"* [📋 Gå til Kildeoversikt]({kilde_list_url})" if kilde_list_url else "* _Kunne ikke opprette Kildeoversikt automatisk._"
             verif_punkt = f"* [🔍 Gå til Verifisering]({verifisering_list_url})" if verifisering_list_url else "* _Kunne ikke opprette Verifiseringsliste automatisk._"
@@ -307,7 +330,7 @@ def handle_modal_submit(ack, body, client, view):
                 ## ❓ Hvem, hva, hvor?
 
                 ### 👥 Roller
-                * **Reportasjeleder:** <@{leader}>
+                * **Reportasjeleder:** {leader_display_name}
                 * **Rykk:** 
                 * **Hovedmanus:**
 
@@ -334,15 +357,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
-        # D. Utfør batch-invitasjonen (alt i én smekk)
-        if all_to_invite:
-            try:
-                users_string = ",".join(all_to_invite)
-                client.conversations_invite(channel=channel_id, users=users_string)
-            except Exception as e:
-                print(f"Advarsel: Kunne ikke invitere alle brukere: {e}")
-
-        # E. Melding i den nye/eksisterende kanalen
+        # H. Melding i den nye/eksisterende kanalen
         velkomst_tekst = f"Velkommen til kanalen! Ansvarlig reportasjeleder er <@{leader}>.\n\n📝 *Jeg har lagt opp et Canvas (Arbeidsliste) øverst i fane-menyen.*"
         
         if kilde_list_url:
@@ -357,7 +372,7 @@ def handle_modal_submit(ack, body, client, view):
             text=velkomst_tekst
         )
 
-        # F. Varsling i kanalen der kommandoen ble startet fra
+        # I. Varsling i kanalen der kommandoen ble startet fra
         if origin_channel_id:
             try:
                 client.chat_postMessage(
@@ -367,7 +382,7 @@ def handle_modal_submit(ack, body, client, view):
             except Exception as e:
                 print(f"Kunne ikke sende melding til starter-kanal: {e}")
 
-        # G. Varsling i felleskanal via .env
+        # J. Varsling i felleskanal via .env
         varsling_kanal = os.environ.get("VARSLING_CHANNEL_ID")
         if varsling_kanal and varsling_kanal != origin_channel_id:
             try:
@@ -378,7 +393,7 @@ def handle_modal_submit(ack, body, client, view):
             except Exception as e:
                 print(f"Kunne ikke sende varsel til felleskanal: {e}")
 
-        # H. Start 15-minutters timer (900 sekunder)
+        # K. Start 15-minutters timer (900 sekunder)
         remind_to_make_private(client, channel_id, user_id, delay_seconds=900)
 
     except Exception as e:
