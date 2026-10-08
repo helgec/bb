@@ -402,7 +402,9 @@ def handle_modal_submit(ack, body, client, view):
 
         client.chat_postMessage(
             channel=channel_id,
-            text=velkomst_tekst
+            text=velkomst_tekst,
+            unfurl_links=False,   # Stopper forhåndsvisning av lenker
+            unfurl_media=False    # Stopper store bilder/media fra lenker
         )
 
         # I. Varsling i kanalen der kommandoen ble startet fra
