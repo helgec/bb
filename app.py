@@ -69,6 +69,7 @@ def open_breaking_modal(ack, body, client):
                 {
                     "type": "input",
                     "block_id": "leader_block",
+                    "optional": True,
                     "element": {
                         "type": "users_select",
                         "action_id": "leader_input",
