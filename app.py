@@ -359,7 +359,7 @@ def handle_modal_submit(ack, body, client, view):
         except Exception as e:
             print(f"FEIL VED OPPRETTELSE AV VERIFISERINGSLISTE: {e}")
 
-        # G. Opprett Channel Canvas (Arbeidsliste)
+      # G. Opprett Channel Canvas (Arbeidsliste)
         canvas_url = ""
         try:
             kilde_punkt = f"* [📋 Gå til Kildeoversikt]({kilde_list_url})" if kilde_list_url else "* _Kunne ikke opprette Kildeoversikt automatisk._"
@@ -400,16 +400,16 @@ def handle_modal_submit(ack, body, client, view):
                 }
             )
             
-            # Hent Canvas ID og formater korrekt Slack-klient URL
+            # Hent Canvas ID og generer slack:// dyp-lenke
             canvas_id = canvas_res.get("canvas_id") or canvas_res.get("canvas", {}).get("id")
             if canvas_id:
-                canvas_url = f"https://app.slack.com/client/{team_id}/{channel_id}/canvas/{canvas_id}"
+                canvas_url = f"slack://canvas?team={team_id}&id={canvas_id}"
 
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
         # H. Melding i den nye/eksisterende kanalen
-        canvas_str = f"\n📝 *Arbeidsliste (Canvas):* <{canvas_url}|Trykk her for å åpne>" if canvas_url else "\n📝 *Bruk canvaset (Arbeidsliste) øverst i fane-menyen.*"
+        canvas_str = f"\n📝 *Arbeidsliste (Canvas):* <{canvas_url}|Trykk her for å åpne direktelenke>" if canvas_url else "\n📝 *Bruk canvaset (Arbeidsliste) øverst i fane-menyen.*"
         kilde_str = f"\n📊 *Kildeoversikt:* <{kilde_list_url}|Trykk her for å åpne Listen>" if kilde_list_url else ""
         verif_str = f"\n🔍 *Verifisering:* <{verifisering_list_url}|Trykk her for å åpne Listen>" if verifisering_list_url else ""
         
@@ -444,7 +444,6 @@ def handle_modal_submit(ack, body, client, view):
                 }
             ]
         )
-
         # I. Varsling i kanalen der kommandoen ble startet fra
         leader_info_varsel = f" Ansvarlig reportasjeleder: <@{leader}>." if leader else ""
         if origin_channel_id:
