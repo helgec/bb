@@ -247,7 +247,7 @@ def handle_modal_submit(ack, body, client, view):
                     "name": "Kildeoversikt",
                     "schema": [
                         {"key": "kilde", "name": "Kilde", "type": "text", "is_primary_column": True},
-                        {"key": "siste_kontakt", "name": "Siste kontakt", "type": "date"},
+                        {"key": "siste_kontakt", "name": "Siste kontakt", "type": "text"},
                         {"key": "ansvarlig", "name": "Ansvarlig", "type": "user"},
                         {"key": "kontaktinfo", "name": "Kontaktinfo", "type": "text"},
                         {"key": "kommentar", "name": "Kommentar", "type": "text"}
@@ -349,6 +349,7 @@ def handle_modal_submit(ack, body, client, view):
             print(f"FEIL VED OPPRETTELSE AV VERIFISERINGSLISTE: {e}")
 
         # G. Opprett Channel Canvas (Arbeidsliste)
+        canvas_url = ""
         try:
             kilde_punkt = f"* [📋 Gå til Kildeoversikt]({kilde_list_url})" if kilde_list_url else "* _Kunne ikke opprette Kildeoversikt automatisk._"
             verif_punkt = f"* [🔍 Gå til Verifisering]({verifisering_list_url})" if verifisering_list_url else "* _Kunne ikke opprette Verifiseringsliste automatisk._"
@@ -379,7 +380,7 @@ def handle_modal_submit(ack, body, client, view):
                 * 
                 """).strip()
 
-            client.conversations_canvases_create(
+            canvas_res = client.conversations_canvases_create(
                 channel_id=channel_id,
                 title="Arbeidsliste",
                 document_content={
@@ -387,10 +388,17 @@ def handle_modal_submit(ack, body, client, view):
                     "markdown": canvas_markdown
                 }
             )
+            
+            # Hent Canvas ID og formater direkte URL
+            canvas_id = canvas_res.get("canvas_id") or canvas_res.get("canvas", {}).get("id")
+            if canvas_id:
+                canvas_url = f"https://app.slack.com/canvas/{team_id}/{canvas_id}"
+
         except Exception as e:
             print(f"Advarsel: Kunne ikke opprette canvas: {e}")
 
-# H. Melding i den nye/eksisterende kanalen (med stor overskrift)
+        # H. Melding i den nye/eksisterende kanalen (med stor overskrift og lenke til Canvas)
+        canvas_str = f"\n📝 *Arbeidsliste (Canvas):* <{canvas_url}|Trykk her for å åpne>" if canvas_url else "\n📝 *Bruk canvaset (Arbeidsliste) øverst i fane-menyen.*"
         kilde_str = f"\n📊 *Kildeoversikt:* <{kilde_list_url}|Trykk her for å åpne Listen>" if kilde_list_url else ""
         verif_str = f"\n🔍 *Verifisering:* <{verifisering_list_url}|Trykk her for å åpne Listen>" if verifisering_list_url else ""
 
@@ -413,9 +421,10 @@ def handle_modal_submit(ack, body, client, view):
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            f"Ansvarlig reportasjeleder er <@{leader}>.\n\n"
-                            f"📝 *Bruk canvaset (Arbeidsliste) øverst i fane-menyen.*"
-                            f"{kilde_str}{verif_str}\n\n"
+                            f"Ansvarlig reportasjeleder er <@{leader}>.\n"
+                            f"{canvas_str}"
+                            f"{kilde_str}"
+                            f"{verif_str}\n\n"
                             f"⏱️ *Husk at denne kanalen _skal_ settes til privat om 15 minutter.*"
                         )
                     }
